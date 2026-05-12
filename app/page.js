@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import {
   ArrowRight,
@@ -80,11 +81,12 @@ const transferOptions = [
 
 const hotelOptions = ["Так, забронюйте мені номер.", "Ні, проживання не потрібне."];
 
-const drinkOptions = [
+/** Окремі блоки з підтипами — не дублювати в списку чекбоксів. */
+const EXPANDABLE_DRINK_LABELS = ["Ігристе", "Вино біле", "Вино червоне"];
+
+const DRINK_ORDER = [
   "Безалкогольні напої",
-  "Ігристе",
-  "Вино біле",
-  "Вино червоне",
+  ...EXPANDABLE_DRINK_LABELS,
   "Віскі",
   "Джин",
   "Горілка",
@@ -93,9 +95,12 @@ const drinkOptions = [
   "Пиво"
 ];
 
+const simpleDrinkCheckboxOptions = DRINK_ORDER.filter(
+  (label) => !EXPANDABLE_DRINK_LABELS.includes(label)
+);
+
 const sparklingOptions = ["Сухе", "Напівсолодке", "Солодке"];
-const whiteWineOptions = ["Сухе", "Напівсухе", "Напівсолодке", "Солодке"];
-const redWineOptions = ["Сухе", "Напівсухе", "Напівсолодке", "Солодке"];
+const stillWineSweetnessOptions = ["Сухе", "Напівсухе", "Напівсолодке", "Солодке"];
 const sliderMax = 188;
 const calendarWeekdays = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
 
@@ -136,6 +141,39 @@ function getTimeLeft() {
     { label: "Хв", value: String(minutes).padStart(2, "0") },
     { label: "Сек", value: String(seconds).padStart(2, "0") }
   ];
+}
+
+/** Stable SSR/client initial value — real countdown starts in useEffect after mount. */
+const countdownPlaceholder = [
+  { label: "Днів", value: "--" },
+  { label: "Год", value: "--" },
+  { label: "Хв", value: "--" },
+  { label: "Сек", value: "--" }
+];
+
+/** Два таймери на сторінці — ключі мають бути унікальні в дереві React. */
+function TimerCard({ countdown, instanceId }) {
+  return (
+    <div className="rounded-[2rem] border border-white/20 bg-[rgba(34,26,23,0.58)] p-5 text-[#fffaf4] shadow-[0_18px_60px_rgba(16,10,8,0.28)] backdrop-blur-xl">
+      <div className="mb-4 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-[#e9cfad]">
+        <CalendarDays className="h-4 w-4" />
+        До весілля залишилось
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {countdown.map((item) => (
+          <div
+            key={`${instanceId}-${item.label}`}
+            className="rounded-[1.4rem] border border-white/15 bg-white/10 px-2 py-4 text-center"
+          >
+            <div className="text-2xl font-semibold text-white">{item.value}</div>
+            <div className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-[#f2dfc4]">
+              {item.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SectionTitle({ eyebrow, title, text }) {
@@ -278,7 +316,7 @@ function ExpandableDrinkOption({
 }
 
 export default function Home() {
-  const [countdown, setCountdown] = useState(getTimeLeft);
+  const [countdown, setCountdown] = useState(countdownPlaceholder);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showStickyTimer, setShowStickyTimer] = useState(false);
@@ -293,6 +331,9 @@ export default function Home() {
   });
   const heroRef = useRef(null);
   const timerRef = useRef(null);
+  const introVideoRef = useRef(null);
+  const introVideoGateRef = useRef(false);
+  const [showIntroVideo, setShowIntroVideo] = useState(false);
   const knobX = useMotionValue(0);
   const progressWidth = useTransform(knobX, [0, sliderMax], ["0%", "100%"]);
   const swipeHint = useTransform(knobX, [0, sliderMax * 0.6], [1, 0.2]);
@@ -303,6 +344,7 @@ export default function Home() {
   );
 
   useEffect(() => {
+    setCountdown(getTimeLeft());
     const timer = window.setInterval(() => {
       setCountdown(getTimeLeft());
     }, 1000);
@@ -341,6 +383,31 @@ export default function Home() {
 
     return () => observer.disconnect();
   }, [isUnlocked]);
+
+  useEffect(() => {
+    if (!showIntroVideo || isUnlocked) {
+      return;
+    }
+
+    const el = introVideoRef.current;
+    if (!el) {
+      return;
+    }
+
+    const playAttempt = el.play();
+    if (playAttempt !== undefined) {
+      playAttempt.catch(() => {});
+    }
+  }, [showIntroVideo, isUnlocked]);
+
+  const requestIntroVideo = useCallback(() => {
+    if (introVideoGateRef.current) {
+      return;
+    }
+
+    introVideoGateRef.current = true;
+    setShowIntroVideo(true);
+  }, []);
 
   const handleUnlock = () => {
     if (isUnlocking || isUnlocked) {
@@ -406,28 +473,6 @@ export default function Home() {
     setOpenDrinkSections((state) => ({ ...state, [key]: !state[key] }));
   };
 
-  const timerCard = (
-    <div className="rounded-[2rem] border border-white/20 bg-[rgba(34,26,23,0.58)] p-5 text-[#fffaf4] shadow-[0_18px_60px_rgba(16,10,8,0.28)] backdrop-blur-xl">
-      <div className="mb-4 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-[#e9cfad]">
-        <CalendarDays className="h-4 w-4" />
-        До весілля залишилось
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        {countdown.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-[1.4rem] border border-white/15 bg-white/10 px-2 py-4 text-center"
-          >
-            <div className="text-2xl font-semibold text-white">{item.value}</div>
-            <div className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-[#f2dfc4]">
-              {item.label}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <main className="min-h-screen bg-[#f7f1ea] text-[#2e2521]">
       <motion.div
@@ -441,7 +486,9 @@ export default function Home() {
         className="fixed inset-x-0 top-4 z-40 px-5"
       >
         <div className="mx-auto max-w-md">
-          <div className="scale-[0.84] origin-top">{timerCard}</div>
+          <div className="scale-[0.84] origin-top">
+            <TimerCard countdown={countdown} instanceId="sticky" />
+          </div>
         </div>
       </motion.div>
 
@@ -453,24 +500,37 @@ export default function Home() {
         }}
         transition={{ duration: 0.45, ease: "easeInOut" }}
         className="fixed inset-0 z-50 overflow-hidden"
+        onPointerDownCapture={requestIntroVideo}
       >
-        <div className="absolute inset-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            poster="/IMG_8548.JPG"
-            className="h-full w-full object-cover bg-[#1a1512]"
-          >
-            <source src="/IMG_8832.MP4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,16,14,0.18),rgba(20,16,14,0.72))]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.34),transparent_46%)]" />
+        <div className="absolute inset-0 bg-[#1a1512]">
+          <div className="relative h-full w-full">
+            <Image
+              src="/IMG_8548.JPG"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+          {showIntroVideo && !isUnlocked ? (
+            <video
+              ref={introVideoRef}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="none"
+              className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover"
+            >
+              <source src="/IMG_8832.MP4" type="video/mp4" />
+            </video>
+          ) : null}
+          <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(180deg,rgba(20,16,14,0.18),rgba(20,16,14,0.72))]" />
+          <div className="pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.34),transparent_46%)]" />
         </div>
 
-        <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-8">
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-8">
           <div className="mb-auto rounded-full border border-white/30 bg-white/12 px-4 py-2 text-center text-[0.72rem] uppercase tracking-[0.35em] text-[#f5e9d6] backdrop-blur-md">
             Wedding day
           </div>
@@ -524,11 +584,16 @@ export default function Home() {
 
       <section ref={heroRef} className="relative isolate overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src="/IMG_8548.JPG"
-            alt="Роман та Оксана"
-            className="h-full w-full object-cover object-[92%_22%] sm:object-[72%_center]"
-          />
+          <div className="relative h-full w-full">
+            <Image
+              src="/IMG_8548.JPG"
+              alt="Роман та Оксана"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-[92%_22%] sm:object-[72%_center]"
+            />
+          </div>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(39,28,24,0.24),rgba(39,28,24,0.68))]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.26),transparent_46%)]" />
         </div>
@@ -556,7 +621,9 @@ export default function Home() {
             </FadeIn>
 
             <FadeIn delay={0.16}>
-              <div ref={timerRef}>{timerCard}</div>
+              <div ref={timerRef}>
+                <TimerCard countdown={countdown} instanceId="hero" />
+              </div>
             </FadeIn>
           </div>
         </div>
@@ -665,10 +732,12 @@ export default function Home() {
               <FadeIn key={location.title} delay={index * 0.08}>
                 <article className="overflow-hidden rounded-[2rem] border border-[#eadbce] bg-[#fffaf6] shadow-[0_16px_44px_rgba(90,63,42,0.08)]">
                   <div className={`relative h-44 bg-gradient-to-br ${location.gradient} p-5`}>
-                    <img
+                    <Image
                       src={location.image}
                       alt={location.subtitle}
-                      className="absolute inset-0 h-full w-full object-cover object-center"
+                      fill
+                      sizes="(max-width: 448px) 100vw, 448px"
+                      className="object-cover object-center"
                     />
                     <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,28,23,0.04),rgba(37,28,23,0.1))]" />
                     <div className="relative z-10 flex h-full flex-col justify-between">
@@ -688,7 +757,7 @@ export default function Home() {
                     <a
                       href={location.href}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#ad845f] px-5 py-3 text-sm font-medium text-[#fff9f3] shadow-[0_14px_30px_rgba(173,132,95,0.34)] transition hover:bg-[#9b734f]"
                     >
                       <MapPinned className="h-4 w-4" />
@@ -880,15 +949,7 @@ export default function Home() {
                     </span>
 
                     <CheckboxGroup
-                      options={[
-                        "Безалкогольні напої",
-                        "Віскі",
-                        "Джин",
-                        "Горілка",
-                        "Бренді / Коньяк",
-                        "Самогонка «Від татуся Андрія» 🌾",
-                        "Пиво"
-                      ]}
+                      options={simpleDrinkCheckboxOptions}
                       values={selectedDrinks}
                       onChange={toggleDrinkCategory}
                       className="mt-4 space-y-3"
@@ -911,7 +972,7 @@ export default function Home() {
                       onToggle={() => toggleDrinkCategory("Вино біле")}
                       isOpen={openDrinkSections.white}
                       onOpenToggle={() => toggleDrinkSectionOpen("white")}
-                      expandedOptions={whiteWineOptions}
+                      expandedOptions={stillWineSweetnessOptions}
                       expandedValues={selectedWhiteWineTypes}
                       onExpandedToggle={(value) => toggleValue(value, setSelectedWhiteWineTypes)}
                     />
@@ -922,7 +983,7 @@ export default function Home() {
                       onToggle={() => toggleDrinkCategory("Вино червоне")}
                       isOpen={openDrinkSections.red}
                       onOpenToggle={() => toggleDrinkSectionOpen("red")}
-                      expandedOptions={redWineOptions}
+                      expandedOptions={stillWineSweetnessOptions}
                       expandedValues={selectedRedWineTypes}
                       onExpandedToggle={(value) => toggleValue(value, setSelectedRedWineTypes)}
                     />

@@ -1,12 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap");
 @import "tailwindcss";
 
 :root {
   --background: #f7f1ea;
   --foreground: #2e2521;
-  --font-sans: "Manrope", sans-serif;
-  --font-serif-display: "Cormorant Garamond", serif;
-  --font-script: "Parisienne", cursive;
 }
 
 @theme inline {
@@ -32,7 +28,7 @@ body {
     radial-gradient(circle at top, rgba(238, 214, 194, 0.48), transparent 24%),
     linear-gradient(180deg, #f8f2eb 0%, #f5ede5 100%);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 button,
