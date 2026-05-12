@@ -97,6 +97,20 @@ const sparklingOptions = ["Сухе", "Напівсолодке", "Солодк�
 const whiteWineOptions = ["Сухе", "Напівсухе", "Напівсолодке", "Солодке"];
 const redWineOptions = ["Сухе", "Напівсухе", "Напівсолодке", "Солодке"];
 const sliderMax = 188;
+const calendarWeekdays = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
+
+function buildCalendarDays(year, monthIndex) {
+  const firstDay = new Date(year, monthIndex, 1);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+
+  return Array.from({ length: 35 }, (_, index) => {
+    const dayNumber = index - startOffset + 1;
+    return dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : null;
+  });
+}
+
+const julyCalendarDays = buildCalendarDays(2026, 6);
 
 function getTimeLeft() {
   const now = new Date();
@@ -550,6 +564,58 @@ export default function Home() {
 
       <div className="relative mx-auto max-w-md px-5 pb-20">
         <div className="absolute inset-x-5 top-0 -z-10 h-40 rounded-full bg-[#e7c6b2]/40 blur-3xl" />
+
+        <section className="pt-14">
+          <FadeIn>
+            <article className="overflow-hidden rounded-[2.2rem] border border-[#eadbce] bg-[linear-gradient(180deg,#fffaf7,#f6ede6)] shadow-[0_16px_44px_rgba(90,63,42,0.08)]">
+              <div className="border-b border-[#ecdcd0] px-6 py-5 text-center">
+                <p className="text-[0.72rem] font-medium uppercase tracking-[0.35em] text-[#a78663]">
+                  Wedding Calendar
+                </p>
+                <div className="mt-3 flex items-center justify-center gap-3 text-[#342923]">
+                  <span className="font-serif-display text-4xl">П&apos;ятниця</span>
+                  <span className="text-2xl text-[#baa18d]">|</span>
+                  <span className="text-4xl font-semibold">10</span>
+                  <span className="text-2xl text-[#baa18d]">|</span>
+                  <span className="font-serif-display text-4xl">липня</span>
+                </div>
+                <p className="mt-2 text-sm text-[#7b695d]">Липень 2026</p>
+              </div>
+
+              <div className="px-5 py-6">
+                <div className="grid grid-cols-7 gap-2 text-center text-[0.72rem] font-medium uppercase tracking-[0.18em] text-[#a78663]">
+                  {calendarWeekdays.map((day) => (
+                    <div key={day} className="py-1">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid grid-cols-7 gap-2">
+                  {julyCalendarDays.map((day, index) => {
+                    const isWeddingDay = day === 10;
+                    return (
+                      <div
+                        key={`${day ?? "empty"}-${index}`}
+                        className={`flex aspect-square items-center justify-center rounded-full text-lg ${
+                          day
+                            ? "text-[#342923]"
+                            : "text-transparent"
+                        } ${
+                          isWeddingDay
+                            ? "border border-[#cfa782] bg-[#fff2e4] font-semibold text-[#9d5f3d] shadow-[0_10px_18px_rgba(207,167,130,0.22)]"
+                            : "bg-transparent"
+                        }`}
+                      >
+                        {day ?? "•"}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </article>
+          </FadeIn>
+        </section>
 
         <section className="pt-14">
           <FadeIn>
