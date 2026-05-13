@@ -16,7 +16,8 @@ import {
   Music4,
   PhoneCall,
   Send,
-  Shirt
+  Shirt,
+  X
 } from "lucide-react";
 
 const weddingDate = new Date("2026-07-10T15:00:00+03:00");
@@ -208,23 +209,29 @@ function FadeIn({ children, delay = 0 }) {
   );
 }
 
-function RadioGroup({ name, options }) {
+function RadioGroup({ name, options, error, onSelect }) {
   return (
-    <div className="mt-4 space-y-3">
-      {options.map((option) => (
-        <label
-          key={option}
-          className="flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-[#ead8cc] bg-white/70 px-4 py-3 text-sm leading-6 text-[#43352d] transition hover:border-[#d7b79a]"
-        >
-          <input
-            type="radio"
-            name={name}
-            className="mt-1 h-4 w-4 shrink-0 accent-[#b18a66]"
-          />
-          <span>{option}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="mt-4 space-y-3">
+        {options.map((option) => (
+          <label
+            key={option}
+            className={`flex cursor-pointer items-start gap-3 rounded-[1.1rem] border bg-white/70 px-4 py-3 text-sm leading-6 text-[#43352d] transition hover:border-[#d7b79a] ${error ? "border-red-400" : "border-[#ead8cc]"
+              }`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option}
+              onChange={() => onSelect?.()}
+              className="mt-1 h-4 w-4 shrink-0 accent-[#b18a66]"
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+      </div>
+      {error ? <p className="mt-2 text-xs text-red-500">{error}</p> : null}
+    </>
   );
 }
 
@@ -336,9 +343,28 @@ export default function Home() {
     white: false,
     red: false
   });
+  const [withPartner, setWithPartner] = useState(false);
+  const [isThanksOpen, setIsThanksOpen] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const clearError = (field) => {
+    setErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
   const heroRef = useRef(null);
   const timerRef = useRef(null);
   const introVideoRef = useRef(null);
+  const guestNameRef = useRef(null);
+  const partnerNameRef = useRef(null);
+  const ceremonyRef = useRef(null);
+  const transferRef = useRef(null);
+  const drinksRef = useRef(null);
   const [splashMounted, setSplashMounted] = useState(true);
   const [splashFadeOut, setSplashFadeOut] = useState(false);
   const knobX = useMotionValue(0);
@@ -469,6 +495,27 @@ export default function Home() {
     }
   }, [splashMounted, isUnlocked]);
 
+  useEffect(() => {
+    if (typeof document === "undefined" || !isThanksOpen) {
+      return;
+    }
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        setIsThanksOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      document.body.style.overflow = original;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isThanksOpen]);
+
   const handleUnlock = () => {
     if (isUnlocking || isUnlocked) {
       return;
@@ -503,6 +550,10 @@ export default function Home() {
     setSelectedDrinks((current) => {
       const isActive = current.includes(value);
       const next = isActive ? current.filter((item) => item !== value) : [...current, value];
+
+      if (next.length > 0) {
+        clearError("drinks");
+      }
 
       if (value === "Ігристе" && isActive) {
         setSelectedSparklingTypes([]);
@@ -911,7 +962,56 @@ export default function Home() {
           </FadeIn>
 
           <FadeIn delay={0.08}>
-            <form className="mt-10 rounded-[2.2rem] border border-[#e6d4c6] bg-[linear-gradient(180deg,#fffaf6,#f8efe8)] p-5 shadow-[0_20px_56px_rgba(90,63,42,0.1)]">
+            <form
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                const data = new FormData(event.currentTarget);
+                const guestName = (data.get("guestName") || "").toString().trim();
+                const partnerName = (data.get("partnerName") || "").toString().trim();
+                const ceremony = data.get("ceremony");
+                const transfer = data.get("transfer");
+
+                const nextErrors = {};
+                if (!guestName) {
+                  nextErrors.guestName = "Заповніть, будь ласка, це поле.";
+                }
+                if (withPartner && !partnerName) {
+                  nextErrors.partnerName = "Заповніть, будь ласка, це поле.";
+                }
+                if (!ceremony) {
+                  nextErrors.ceremony = "Оберіть, будь ласка, варіант.";
+                }
+                if (!transfer) {
+                  nextErrors.transfer = "Оберіть, будь ласка, варіант.";
+                }
+                if (selectedDrinks.length === 0) {
+                  nextErrors.drinks =
+                    "Це поле обов'язкове (виберіть «Безалкогольні напої», якщо не п'єте алкоголь).";
+                }
+
+                setErrors(nextErrors);
+
+                if (Object.keys(nextErrors).length > 0) {
+                  const fieldOrder = [
+                    ["guestName", guestNameRef],
+                    ["partnerName", partnerNameRef],
+                    ["ceremony", ceremonyRef],
+                    ["transfer", transferRef],
+                    ["drinks", drinksRef]
+                  ];
+                  const firstInvalid = fieldOrder.find(([key]) => nextErrors[key]);
+                  const node = firstInvalid?.[1].current;
+                  if (node) {
+                    node.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                  return;
+                }
+
+                setIsThanksOpen(true);
+              }}
+              className="mt-10 rounded-[2.2rem] border border-[#e6d4c6] bg-[linear-gradient(180deg,#fffaf6,#f8efe8)] p-5 shadow-[0_20px_56px_rgba(90,63,42,0.1)]"
+            >
               <div className="space-y-6">
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">1. Ваша присутність</p>
@@ -938,21 +1038,68 @@ export default function Home() {
                     <label className="block space-y-2">
                       <span className="text-sm font-medium text-[#5e4b3f]">Ім&apos;я та прізвище</span>
                       <input
+                        ref={guestNameRef}
                         type="text"
+                        name="guestName"
                         placeholder="Ім'я та прізвище"
-                        className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition placeholder:text-[#a08c7d] focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
+                        onChange={() => clearError("guestName")}
+                        aria-invalid={errors.guestName ? "true" : "false"}
+                        className={`h-14 w-full rounded-[1.2rem] border bg-white/80 px-4 text-sm text-[#302622] outline-none transition placeholder:text-[#a08c7d] focus:ring-4 ${errors.guestName
+                          ? "border-red-400 focus:border-red-400 focus:ring-red-100"
+                          : "border-[#e4d4c7] focus:border-[#b18a66] focus:ring-[#e8d3bf]/50"
+                          }`}
                       />
+                      {errors.guestName ? (
+                        <p className="text-xs text-red-500">{errors.guestName}</p>
+                      ) : null}
                     </label>
-                    <label className="block space-y-2">
-                      <span className="text-sm font-medium text-[#5e4b3f]">
-                        Ім&apos;я та прізвище супутника/супутниці (якщо йдете не самі)
-                      </span>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-[#ead8cc] bg-white/70 px-4 py-3 text-sm leading-6 text-[#43352d] transition hover:border-[#d7b79a]">
                       <input
-                        type="text"
-                        placeholder="Ім'я та прізвище"
-                        className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition placeholder:text-[#a08c7d] focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
+                        type="checkbox"
+                        checked={withPartner}
+                        onChange={() => {
+                          setWithPartner((s) => {
+                            const next = !s;
+                            if (!next) {
+                              clearError("partnerName");
+                            }
+                            return next;
+                          });
+                        }}
+                        className="mt-1 h-4 w-4 shrink-0 rounded accent-[#b18a66]"
                       />
+                      <span>Я буду з супутником/супутницею</span>
                     </label>
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        height: withPartner ? "auto" : 0,
+                        opacity: withPartner ? 1 : 0
+                      }}
+                      transition={{ duration: 0.24, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <label className="block space-y-2 pt-1">
+                        <span className="text-sm font-medium text-[#5e4b3f]">
+                          Ім&apos;я та прізвище супутника/супутниці
+                        </span>
+                        <input
+                          ref={partnerNameRef}
+                          type="text"
+                          name="partnerName"
+                          placeholder="Ім'я та прізвище"
+                          onChange={() => clearError("partnerName")}
+                          aria-invalid={errors.partnerName ? "true" : "false"}
+                          className={`h-14 w-full rounded-[1.2rem] border bg-white/80 px-4 text-sm text-[#302622] outline-none transition placeholder:text-[#a08c7d] focus:ring-4 ${errors.partnerName
+                            ? "border-red-400 focus:border-red-400 focus:ring-red-100"
+                            : "border-[#e4d4c7] focus:border-[#b18a66] focus:ring-[#e8d3bf]/50"
+                            }`}
+                        />
+                        {errors.partnerName ? (
+                          <p className="text-xs text-red-500">{errors.partnerName}</p>
+                        ) : null}
+                      </label>
+                    </motion.div>
                   </div>
                 </div>
 
@@ -961,7 +1108,14 @@ export default function Home() {
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
                     Підкажіть, будь ласка, на яку частину свята Ви плануєте приєднатися.
                   </p>
-                  <RadioGroup name="ceremony" options={ceremonyOptions} />
+                  <div ref={ceremonyRef}>
+                    <RadioGroup
+                      name="ceremony"
+                      options={ceremonyOptions}
+                      error={errors.ceremony}
+                      onSelect={() => clearError("ceremony")}
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
@@ -969,7 +1123,14 @@ export default function Home() {
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
                     <strong>(Оберіть варіант, який Вам підходить)</strong>
                   </p>
-                  <RadioGroup name="transfer" options={transferOptions} />
+                  <div ref={transferRef}>
+                    <RadioGroup
+                      name="transfer"
+                      options={transferOptions}
+                      error={errors.transfer}
+                      onSelect={() => clearError("transfer")}
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
@@ -995,7 +1156,7 @@ export default function Home() {
                       Будь ласка, оберіть варіанти (можна декілька):
                     </strong>
                   </p>
-                  <div className="mt-4 space-y-3">
+                  <div ref={drinksRef} className="mt-4 space-y-3">
                     <span className="text-sm font-medium text-[#5e4b3f]">
                       Вибір напоїв для Вас двох
                     </span>
@@ -1040,6 +1201,9 @@ export default function Home() {
                       onExpandedToggle={(value) => toggleValue(value, setSelectedRedWineTypes)}
                     />
                   </div>
+                  {errors.drinks ? (
+                    <p className="mt-3 text-xs text-red-500">{errors.drinks}</p>
+                  ) : null}
                 </div>
 
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
@@ -1059,7 +1223,10 @@ export default function Home() {
                 </div>
               </div>
 
-              <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2f2621] px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition hover:bg-[#1f1815]">
+              <button
+                type="submit"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2f2621] px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition hover:bg-[#1f1815]"
+              >
                 <Send className="h-4 w-4" />
                 Надіслати
               </button>
@@ -1103,6 +1270,93 @@ export default function Home() {
           </footer>
         </FadeIn>
       </div>
+
+      <motion.div
+        initial={false}
+        animate={{ opacity: isThanksOpen ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        style={{ pointerEvents: isThanksOpen ? "auto" : "none" }}
+        className="fixed inset-0 z-[120] flex items-end justify-center px-5 pb-6 pt-6 sm:items-center"
+        aria-hidden={!isThanksOpen}
+      >
+        <button
+          type="button"
+          aria-label="Закрити"
+          tabIndex={isThanksOpen ? 0 : -1}
+          onClick={() => setIsThanksOpen(false)}
+          className="absolute inset-0 bg-[rgba(20,16,14,0.55)] backdrop-blur-md"
+        />
+
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="thanks-modal-title"
+          initial={false}
+          animate={{
+            opacity: isThanksOpen ? 1 : 0,
+            y: isThanksOpen ? 0 : 24,
+            scale: isThanksOpen ? 1 : 0.96
+          }}
+          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-10 w-full max-w-md overflow-hidden rounded-[2.4rem] border border-[#eadbce] bg-[linear-gradient(180deg,#fffaf6,#f6ede4)] p-6 shadow-[0_28px_70px_rgba(47,38,33,0.32)]"
+        >
+          <button
+            type="button"
+            onClick={() => setIsThanksOpen(false)}
+            aria-label="Закрити"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f3e4d7] text-[#9f7a58] transition hover:bg-[#ead2bb] hover:text-[#7a5a40]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#f3e4d7] text-[#9f7a58] shadow-[0_12px_28px_rgba(173,132,95,0.28)]">
+              <Check className="h-7 w-7" />
+            </div>
+            <p className="mt-5 text-[0.7rem] font-medium uppercase tracking-[0.35em] text-[#a78663]">
+              Дякуємо
+            </p>
+            <h3
+              id="thanks-modal-title"
+              className="mt-2 font-serif-display text-3xl text-[#322620]"
+            >
+              Вашу відповідь надіслано
+            </h3>
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-[#6b5b50]">
+              Ми отримали Ваші дані і з нетерпінням чекаємо зустрічі. Якщо у Вас лишилися
+              запитання — координатор охоче все підкаже.
+            </p>
+          </div>
+
+          <article className="mt-6 rounded-[1.6rem] border border-[#eadbce] bg-white/70 p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex size-[3.5rem] shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#ead7c8] bg-[linear-gradient(135deg,#f1e4d7,#dec2b3)] text-[#8e6c55]">
+                <PhoneCall className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.68rem] uppercase tracking-[0.28em] text-[#a07b5f]">
+                  Coordinator
+                </p>
+                <h4 className="mt-1 text-lg font-semibold text-[#31251f]">Ярина</h4>
+                <a
+                  href="tel:+380977136226"
+                  className="mt-1 inline-block text-sm text-[#9d7d63] transition hover:text-[#7a5a40]"
+                >
+                  +380 97 713 62 26
+                </a>
+              </div>
+            </div>
+          </article>
+
+          <button
+            type="button"
+            onClick={() => setIsThanksOpen(false)}
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2f2621] px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition hover:bg-[#1f1815]"
+          >
+            Дякуємо!
+          </button>
+        </motion.div>
+      </motion.div>
     </main>
   );
 }
