@@ -496,6 +496,19 @@ export default function Home() {
   }, [splashMounted, isUnlocked]);
 
   useEffect(() => {
+    if (typeof document === "undefined" || isUnlocked) {
+      return;
+    }
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [isUnlocked]);
+
+  useEffect(() => {
     if (typeof document === "undefined" || !isThanksOpen) {
       return;
     }
@@ -706,10 +719,10 @@ export default function Home() {
 
       <section
         ref={heroRef}
-        className="relative isolate min-h-dvh overflow-hidden"
+        className="relative isolate min-h-svh overflow-hidden"
       >
         <div className="absolute inset-0">
-          <div className="relative h-full min-h-dvh w-full">
+          <div className="relative h-full min-h-svh w-full">
             <Image
               src="/IMG_8548.JPG"
               alt="Роман та Оксана"
@@ -723,7 +736,7 @@ export default function Home() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.26),transparent_46%)]" />
         </div>
 
-        <div className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-10 pt-8">
+        <div className="relative z-10 mx-auto flex min-h-svh max-w-md flex-col px-5 pb-10 pt-8">
           <FadeIn>
             <div className="mb-auto rounded-full border border-white/30 bg-white/10 px-4 py-2 text-center text-[0.72rem] uppercase tracking-[0.35em] text-[#f5e9d6] backdrop-blur-md">
               Wedding day
