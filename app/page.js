@@ -34,7 +34,11 @@ const timeline = [
   {
     time: "15:30",
     title: "Збір",
-    description: "Тепла зустріч гостей, легкий welcome drink та перші обійми у Явір Резорт.",
+    description: (
+      <>
+        Тепла зустріч гостей, легкий welcome drink та перші обійми у <strong>Явір Резорт</strong>.
+      </>
+    ),
     icon: Clock3
   },
   {
@@ -684,7 +688,7 @@ export default function Home() {
                   <span className="mt-2 block">Оксана</span>
                 </h1>
                 <p className="mx-auto max-w-xs text-sm leading-7 text-[#f9f2ea]">
-                  Запрошуємо вас розділити з нами день, у якому любов звучатиме особливо тихо,
+                  Запрошуємо Вас розділити з нами день, у якому любов звучатиме особливо тихо,
                   красиво й назавжди.
                 </p>
               </div>
@@ -791,7 +795,7 @@ export default function Home() {
             <SectionTitle
               eyebrow="Локації"
               title="Два місця, одна особлива історія"
-              text="Зібрали для вас усе найважливіше, щоб дорога до нас була легкою і спокійною."
+              text="Зібрали для Вас усе найважливіше, щоб дорога до нас була легкою і спокійною."
             />
           </FadeIn>
 
@@ -855,7 +859,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-3">
                   <p className="text-sm leading-7 text-[#6b5b50]">
-                    Ми не встановлюємо строгого дрес-коду — головне, щоб вам було комфортно та святково.
+                    Ми не встановлюємо строгого дрес-коду — головне, щоб Вам було комфортно та святково.
                   </p>
                 </div>
               </div>
@@ -868,7 +872,7 @@ export default function Home() {
             <SectionTitle
               eyebrow="Побажання"
               title="Трохи важливих деталей"
-              text="Найбільша цінність для нас, що ви будете поруч.  А ще залишили маленьке побажання щодо подарунків."
+              text="Найбільша цінність для нас, що Ви будете поруч.  А ще залишили маленьке побажання щодо подарунків."
             />
           </FadeIn>
 
@@ -896,7 +900,13 @@ export default function Home() {
             <SectionTitle
               eyebrow="RSVP"
               title="Підтвердження присутності"
-              text="Ми щиро чекаємо на зустріч із Вами. Будь ласка, заповніть цю форму до 1 червня включно. Якщо Ви плануєте бути з парою, вкажіть інформацію за обох осіб."
+              text={
+                <>
+                  Ми щиро чекаємо на зустріч із Вами. Будь ласка, заповніть цю форму{" "}
+                  <strong>до 1 червня включно</strong>. Якщо Ви плануєте бути з парою, вкажіть
+                  інформацію за обох осіб.
+                </>
+              }
             />
           </FadeIn>
 
@@ -906,7 +916,7 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">1. Ваша присутність</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    Оберіть варіант, який найточніше відповідає вашим планам.
+                    Оберіть варіант, який найточніше відповідає Вашим планам.
                   </p>
                   <label className="mt-4 block space-y-2">
                     <span className="text-sm font-medium text-[#5e4b3f]">Відповідь</span>
@@ -949,7 +959,7 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">3. Розклад та вінчання</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    Підкажіть, будь ласка, на яку частину свята ви плануєте приєднатися.
+                    Підкажіть, будь ласка, на яку частину свята Ви плануєте приєднатися.
                   </p>
                   <RadioGroup name="ceremony" options={ceremonyOptions} />
                 </div>
@@ -957,7 +967,7 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">4. Трансфер та логістика 🚗</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    <strong>(Оберіть варіант, який вам підходить)</strong>
+                    <strong>(Оберіть варіант, який Вам підходить)</strong>
                   </p>
                   <RadioGroup name="transfer" options={transferOptions} />
                 </div>
@@ -965,7 +975,7 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">5. Проживання у готелі 🏨</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    Якщо ви плануєте залишитися з ночівлею, ми можемо забронювати для вас номер.
+                    Якщо Ви плануєте залишитися з ночівлею, ми можемо забронювати для Вас номер.
                     <strong> Оплата здійснюється гостем при поселенні.</strong>
                   </p>
                   <label className="mt-4 block space-y-2">
@@ -987,7 +997,7 @@ export default function Home() {
                   </p>
                   <div className="mt-4 space-y-3">
                     <span className="text-sm font-medium text-[#5e4b3f]">
-                      Вибір напоїв для вас двох
+                      Вибір напоїв для Вас двох
                     </span>
 
                     <CheckboxGroup
@@ -1035,8 +1045,8 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">7. Зворотний зв&apos;язок</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    Якщо у вас залишилися запитання, які вас турбують, або ви хочете уточнити
-                    деталі, на які ми маємо вам відповісти, напишіть їх тут.
+                    Якщо у Вас залишилися запитання, які Вас турбують, або Ви хочете уточнити
+                    деталі, на які ми маємо Вам відповісти, напишіть їх тут.
                   </p>
                   <label className="mt-4 block space-y-2">
                     <span className="text-sm font-medium text-[#5e4b3f]">Запитання та коментарі</span>
@@ -1086,7 +1096,7 @@ export default function Home() {
           <footer className="pb-4 pt-16 text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#e2d0c3] bg-white/70 px-4 py-2 text-xs uppercase tracking-[0.28em] text-[#9d795c]">
               <Check className="h-4 w-4" />
-              З любов&apos;ю чекаємо на вас
+              З любов&apos;ю чекаємо на Вас
             </div>
             <p className="mt-5 font-script text-4xl text-[#b38863]">Roman & Oksana</p>
             <p className="mt-2 text-sm text-[#7b695d]">10 липня 2026</p>
