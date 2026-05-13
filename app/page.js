@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import {
   ArrowRight,
@@ -21,23 +21,26 @@ import {
 
 const weddingDate = new Date("2026-07-10T15:00:00+03:00");
 
+const introVideoSrc = "/Video_Web_light.mp4";
+const introVideoPoster = "/IMG_8548.JPG";
+
 const timeline = [
   {
-    time: "12:30",
-    title: "Збір",
-    description: "Тепла зустріч гостей, легкий welcome drink та перші обійми.",
-    icon: Clock3
-  },
-  {
-    time: "14:00",
-    title: "Церемонія",
+    time: "12:00",
+    title: "Вінчання",
     description: "Момент, коли ми скажемо одне одному найголовніше слово.",
     icon: Church
   },
   {
-    time: "17:00",
-    title: "Банкет",
-    description: "Святкова вечеря, музика, танці та вечір у колі близьких.",
+    time: "15:30",
+    title: "Збір",
+    description: "Тепла зустріч гостей, легкий welcome drink та перші обійми у Явір Резорт.",
+    icon: Clock3
+  },
+  {
+    time: "16:30",
+    title: "Святкова частина",
+    description: "Головний момент вечора починається прямо зараз.",
     icon: Music4
   }
 ];
@@ -332,8 +335,8 @@ export default function Home() {
   const heroRef = useRef(null);
   const timerRef = useRef(null);
   const introVideoRef = useRef(null);
-  const introVideoGateRef = useRef(false);
-  const [showIntroVideo, setShowIntroVideo] = useState(false);
+  const [splashMounted, setSplashMounted] = useState(true);
+  const [splashFadeOut, setSplashFadeOut] = useState(false);
   const knobX = useMotionValue(0);
   const progressWidth = useTransform(knobX, [0, sliderMax], ["0%", "100%"]);
   const swipeHint = useTransform(knobX, [0, sliderMax * 0.6], [1, 0.2]);
@@ -385,29 +388,82 @@ export default function Home() {
   }, [isUnlocked]);
 
   useEffect(() => {
-    if (!showIntroVideo || isUnlocked) {
+    if (typeof window === "undefined") {
       return;
     }
 
+    let cancelled = false;
+    const minMs = 550;
+    const maxMs = 15000;
+    const t0 = performance.now();
+
+    const scheduleHide = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const elapsed = performance.now() - t0;
+      const rest = Math.max(0, minMs - elapsed);
+      window.setTimeout(() => {
+        if (!cancelled) {
+          setSplashFadeOut(true);
+        }
+      }, rest);
+    };
+
+    const maxTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setSplashFadeOut(true);
+      }
+    }, maxMs);
+
+    const onLoad = () => {
+      window.clearTimeout(maxTimer);
+      scheduleHide();
+    };
+
+    if (document.readyState === "complete") {
+      onLoad();
+    } else {
+      window.addEventListener("load", onLoad, { once: true });
+    }
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("load", onLoad);
+      window.clearTimeout(maxTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!splashFadeOut) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSplashMounted(false);
+    }, 480);
+
+    return () => window.clearTimeout(timer);
+  }, [splashFadeOut]);
+
+  useEffect(() => {
     const el = introVideoRef.current;
-    if (!el) {
+    if (!el || isUnlocked) {
       return;
     }
 
+    if (splashMounted) {
+      el.pause();
+      return;
+    }
+
+    el.currentTime = 0;
     const playAttempt = el.play();
     if (playAttempt !== undefined) {
-      playAttempt.catch(() => {});
+      playAttempt.catch(() => { });
     }
-  }, [showIntroVideo, isUnlocked]);
-
-  const requestIntroVideo = useCallback(() => {
-    if (introVideoGateRef.current) {
-      return;
-    }
-
-    introVideoGateRef.current = true;
-    setShowIntroVideo(true);
-  }, []);
+  }, [splashMounted, isUnlocked]);
 
   const handleUnlock = () => {
     if (isUnlocking || isUnlocked) {
@@ -475,6 +531,27 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#f7f1ea] text-[#2e2521]">
+      {splashMounted ? (
+        <motion.div
+          initial={false}
+          animate={{ opacity: splashFadeOut ? 0 : 1 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-[#f7f1ea] px-6 text-center"
+          style={{ pointerEvents: splashFadeOut ? "none" : "auto" }}
+        >
+          <p className="font-script text-4xl text-[#b38863] sm:text-5xl">Roman & Oksana</p>
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="h-11 w-11 shrink-0 animate-spin rounded-full border-2 border-[#ead8cc] border-t-[#b18a66] [animation-duration:0.85s]"
+              aria-hidden
+            />
+            <p className="max-w-xs text-xs uppercase leading-relaxed tracking-[0.28em] text-[#9d7d63]">
+              Завантажуємо запрошення
+            </p>
+          </div>
+        </motion.div>
+      ) : null}
+
       <motion.div
         initial={false}
         animate={{
@@ -500,30 +577,20 @@ export default function Home() {
         }}
         transition={{ duration: 0.45, ease: "easeInOut" }}
         className="fixed inset-0 z-50 overflow-hidden"
-        onPointerDownCapture={requestIntroVideo}
       >
         <div className="absolute inset-0 bg-[#1a1512]">
-          <div className="relative h-full w-full">
-            <Image
-              src="/IMG_8548.JPG"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-          </div>
-          {showIntroVideo && !isUnlocked ? (
+          {!isUnlocked ? (
             <video
               ref={introVideoRef}
-              autoPlay
               loop
               muted
               playsInline
-              preload="none"
+              preload="auto"
+              poster={introVideoPoster}
+              aria-hidden="true"
               className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover"
             >
-              <source src="/IMG_8832.MP4" type="video/mp4" />
+              <source src={introVideoSrc} type="video/mp4" />
             </video>
           ) : null}
           <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(180deg,rgba(20,16,14,0.18),rgba(20,16,14,0.72))]" />
@@ -582,9 +649,12 @@ export default function Home() {
         </div>
       </motion.section>
 
-      <section ref={heroRef} className="relative isolate overflow-hidden">
+      <section
+        ref={heroRef}
+        className="relative isolate min-h-dvh overflow-hidden"
+      >
         <div className="absolute inset-0">
-          <div className="relative h-full w-full">
+          <div className="relative h-full min-h-dvh w-full">
             <Image
               src="/IMG_8548.JPG"
               alt="Роман та Оксана"
@@ -594,11 +664,11 @@ export default function Home() {
               className="object-cover object-[92%_22%] sm:object-[72%_center]"
             />
           </div>
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(39,28,24,0.24),rgba(39,28,24,0.68))]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.26),transparent_46%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(39,28,24,0.24),rgba(39,28,24,0.68))]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,244,230,0.26),transparent_46%)]" />
         </div>
 
-        <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-5 pb-10 pt-8">
+        <div className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col px-5 pb-10 pt-8">
           <FadeIn>
             <div className="mb-auto rounded-full border border-white/30 bg-white/10 px-4 py-2 text-center text-[0.72rem] uppercase tracking-[0.35em] text-[#f5e9d6] backdrop-blur-md">
               Wedding day
@@ -664,15 +734,13 @@ export default function Home() {
                     return (
                       <div
                         key={`${day ?? "empty"}-${index}`}
-                        className={`flex aspect-square items-center justify-center rounded-full text-lg ${
-                          day
-                            ? "text-[#342923]"
-                            : "text-transparent"
-                        } ${
-                          isWeddingDay
+                        className={`flex aspect-square items-center justify-center rounded-full text-lg ${day
+                          ? "text-[#342923]"
+                          : "text-transparent"
+                          } ${isWeddingDay
                             ? "border border-[#cfa782] bg-[#fff2e4] font-semibold text-[#9d5f3d] shadow-[0_10px_18px_rgba(207,167,130,0.22)]"
                             : "bg-transparent"
-                        }`}
+                          }`}
                       >
                         {day ?? "•"}
                       </div>
@@ -774,8 +842,8 @@ export default function Home() {
           <FadeIn>
             <SectionTitle
               eyebrow="Dress-code"
-              title="Стиль у ніжних відтінках"
-              text="Світлі, теплі й приглушені тони чудово підтримають атмосферу цього дня."
+              title=""
+              text=""
             />
           </FadeIn>
 
@@ -786,20 +854,9 @@ export default function Home() {
                   <Shirt className="h-5 w-5" />
                 </div>
                 <div className="space-y-3">
-                  <h3 className="text-xl font-semibold text-[#31251f]">Деталі згодом</h3>
                   <p className="text-sm leading-7 text-[#6b5b50]">
-                    Незабаром тут з&apos;являться референси кольорів та легкий візуальний гід по
-                    образах для гостей.
+                    Ми не встановлюємо строгого дрес-коду — головне, щоб вам було комфортно та святково.
                   </p>
-                  <div className="flex gap-2">
-                    {["#f0e2d3", "#dfc1b2", "#b79d87", "#786459"].map((color) => (
-                      <span
-                        key={color}
-                        className="h-10 w-10 rounded-full border border-white shadow-inner"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
@@ -811,7 +868,7 @@ export default function Home() {
             <SectionTitle
               eyebrow="Побажання"
               title="Трохи важливих деталей"
-              text="Найбільша цінність для нас, що ви будете поруч. А ще залишили маленьке побажання щодо подарунків."
+              text="Найбільша цінність для нас, що ви будете поруч.  А ще залишили маленьке побажання щодо подарунків."
             />
           </FadeIn>
 
@@ -825,27 +882,12 @@ export default function Home() {
                   <h3 className="text-xl font-semibold text-[#31251f]">Подарунки</h3>
                 </div>
                 <p className="mt-4 text-sm leading-7 text-[#6b5b50]">
-                  Якщо захочете привітати нас подарунком, будемо дуже вдячні за внесок у наші
-                  спільні мрії. Замість квітів із радістю приймемо теплі слова, обійми та
-                  святковий конверт.
+                  Замість квітів будемо раді пляшечці вина або іншого алкоголю для наших майбутніх сімейних вечорів.
                 </p>
               </article>
             </FadeIn>
 
-            <FadeIn delay={0.14}>
-              <article className="rounded-[2rem] border border-[#eadbce] bg-[#fffaf6] p-5 shadow-[0_16px_44px_rgba(90,63,42,0.08)]">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f3e5da] text-[#9a765b]">
-                    <MessagesSquare className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#31251f]">Тепла атмосфера</h3>
-                </div>
-                <p className="mt-4 text-sm leading-7 text-[#6b5b50]">
-                  Хочемо, щоб цей день був легким, щирим і дуже нашим. Дякуємо, що розділите з
-                  нами ці миті з любов&apos;ю й радістю.
-                </p>
-              </article>
-            </FadeIn>
+
           </div>
         </section>
 
@@ -854,7 +896,7 @@ export default function Home() {
             <SectionTitle
               eyebrow="RSVP"
               title="Підтвердження присутності"
-              text="Ми щиро чекаємо на зустріч із вами. Будь ласка, заповніть цю форму до 1 червня включно. Якщо ви плануєте бути з парою, вкажіть інформацію за обох осіб."
+              text="Ми щиро чекаємо на зустріч із Вами. Будь ласка, заповніть цю форму до 1 червня включно. Якщо Ви плануєте бути з парою, вкажіть інформацію за обох осіб."
             />
           </FadeIn>
 
@@ -1032,8 +1074,8 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.28em] text-[#a07b5f]">Coordinator</p>
-                  <h3 className="mt-1 text-xl font-semibold text-[#31251f]">Анна Коваленко</h3>
-                  <p className="mt-1 text-sm text-[#6b5b50]">+380 67 000 00 00</p>
+                  <h3 className="mt-1 text-xl font-semibold text-[#31251f]">Ярина</h3>
+                  <p className="mt-1 text-sm text-[#6b5b50]">+380 97 713 62 26</p>
                 </div>
               </div>
             </article>

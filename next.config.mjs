@@ -8,6 +8,13 @@ const nextConfig = {
         hostname: "images.unsplash.com"
       }
     ]
+  },
+  /** Уникає ENOENT rename у `.next/cache/webpack/...` під час dev (часто після крашу або двох процесів). */
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.cache = false;
+    }
+    return config;
   }
 };
 
