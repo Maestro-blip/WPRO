@@ -3,3 +3,7 @@ node_modules/
 .next_backup_*/
 .next_broken_*/
 .DS_Store
+
+.env
+.env.local
+.env.*.local

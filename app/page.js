@@ -11,6 +11,7 @@ import {
   Church,
   Clock3,
   HeartHandshake,
+  Loader2,
   MapPinned,
   MessagesSquare,
   Music4,
@@ -346,6 +347,8 @@ export default function Home() {
   const [withPartner, setWithPartner] = useState(false);
   const [isThanksOpen, setIsThanksOpen] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const clearError = (field) => {
     setErrors((current) => {
@@ -977,8 +980,11 @@ export default function Home() {
           <FadeIn delay={0.08}>
             <form
               noValidate
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
+                if (isSubmitting) {
+                  return;
+                }
                 const data = new FormData(event.currentTarget);
                 const guestName = (data.get("guestName") || "").toString().trim();
                 const partnerName = (data.get("partnerName") || "").toString().trim();
@@ -1021,7 +1027,44 @@ export default function Home() {
                   return;
                 }
 
-                setIsThanksOpen(true);
+                const payload = {
+                  attendance: (data.get("attendance") || "").toString(),
+                  guestName,
+                  partnerName: withPartner ? partnerName : "",
+                  ceremony: (ceremony || "").toString(),
+                  transfer: (transfer || "").toString(),
+                  hotel: (data.get("hotel") || "").toString(),
+                  drinks: selectedDrinks,
+                  sparkling: selectedSparklingTypes,
+                  whiteWine: selectedWhiteWineTypes,
+                  redWine: selectedRedWineTypes,
+                  message: (data.get("message") || "").toString().trim()
+                };
+
+                const webhookUrl = process.env.NEXT_PUBLIC_SHEET_WEBHOOK_URL;
+                setSubmitError(null);
+                setIsSubmitting(true);
+
+                try {
+                  if (webhookUrl) {
+                    await fetch(webhookUrl, {
+                      method: "POST",
+                      body: JSON.stringify(payload),
+                      redirect: "follow"
+                    });
+                  } else if (process.env.NODE_ENV !== "production") {
+                    console.warn(
+                      "NEXT_PUBLIC_SHEET_WEBHOOK_URL не задано. RSVP не відправлено."
+                    );
+                  }
+                  setIsThanksOpen(true);
+                } catch (error) {
+                  setSubmitError(
+                    "Не вдалось надіслати відповідь. Перевірте інтернет і спробуйте ще раз, або зателефонуйте координаторці."
+                  );
+                } finally {
+                  setIsSubmitting(false);
+                }
               }}
               className="mt-10 rounded-[2.2rem] border border-[#e6d4c6] bg-[linear-gradient(180deg,#fffaf6,#f8efe8)] p-5 shadow-[0_20px_56px_rgba(90,63,42,0.1)]"
             >
@@ -1033,7 +1076,11 @@ export default function Home() {
                   </p>
                   <label className="mt-4 block space-y-2">
                     <span className="text-sm font-medium text-[#5e4b3f]">Відповідь</span>
-                    <select className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50">
+                    <select
+                      name="attendance"
+                      defaultValue={attendanceOptions[0]}
+                      className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
+                    >
                       {attendanceOptions.map((option) => (
                         <option key={option}>{option}</option>
                       ))}
@@ -1154,7 +1201,11 @@ export default function Home() {
                   </p>
                   <label className="mt-4 block space-y-2">
                     <span className="text-sm font-medium text-[#5e4b3f]">Проживання</span>
-                    <select className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50">
+                    <select
+                      name="hotel"
+                      defaultValue={hotelOptions[0]}
+                      className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
+                    >
                       {hotelOptions.map((option) => (
                         <option key={option}>{option}</option>
                       ))}
@@ -1228,6 +1279,7 @@ export default function Home() {
                   <label className="mt-4 block space-y-2">
                     <span className="text-sm font-medium text-[#5e4b3f]">Запитання та коментарі</span>
                     <textarea
+                      name="message"
                       rows={5}
                       placeholder="Ваші запитання та коментарі"
                       className="w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 py-3 text-sm text-[#302622] outline-none transition placeholder:text-[#a08c7d] focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
@@ -1238,11 +1290,36 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2f2621] px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition hover:bg-[#1f1815]"
+                disabled={isSubmitting}
+                aria-busy={isSubmitting ? "true" : "false"}
+                className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition ${isSubmitting
+                  ? "cursor-wait bg-[#5a4a40]"
+                  : "bg-[#2f2621] hover:bg-[#1f1815]"
+                  }`}
               >
-                <Send className="h-4 w-4" />
-                Надіслати
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Надсилаємо…
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Надіслати
+                  </>
+                )}
               </button>
+              {submitError ? (
+                <p className="mt-3 text-center text-xs leading-6 text-red-500">
+                  {submitError}{" "}
+                  <a
+                    href="tel:+380977136226"
+                    className="font-medium underline underline-offset-2"
+                  >
+                    +380 97 713 62 26
+                  </a>
+                </p>
+              ) : null}
             </form>
           </FadeIn>
         </section>
