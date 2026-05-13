@@ -27,7 +27,21 @@ const siteDescription =
   "Запрошуємо Вас на наше весілля 10 липня 2026 — Львів та Явір Резорт.";
 const ogImage = "/IMG_8548.JPG";
 
+/**
+ * Базовий URL сайту. Потрібен, щоб OG-картинки резолвились у абсолютні URL
+ * (Telegram/Facebook не підтягують відносні шляхи).
+ *
+ * Пріоритет:
+ *   1. NEXT_PUBLIC_SITE_URL — задаєш сам у Vercel/локально, якщо є кастомний домен.
+ *   2. VERCEL_URL — автоматично проставляється Vercel-ом для будь-якого деплою.
+ *   3. localhost — лише для dev.
+ */
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata = {
+  metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
   applicationName: "Roman & Oksana Wedding",
