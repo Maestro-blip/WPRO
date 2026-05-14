@@ -349,6 +349,7 @@ export default function Home() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [showScrollHint, setShowScrollHint] = useState(true);
 
   const clearError = (field) => {
     setErrors((current) => {
@@ -372,7 +373,6 @@ export default function Home() {
   const [splashFadeOut, setSplashFadeOut] = useState(false);
   const knobX = useMotionValue(0);
   const progressWidth = useTransform(knobX, [0, sliderMax], ["0%", "100%"]);
-  const swipeHint = useTransform(knobX, [0, sliderMax * 0.6], [1, 0.2]);
 
   const sliderTransition = useMemo(
     () => ({ type: "spring", stiffness: 320, damping: 30 }),
@@ -510,6 +510,21 @@ export default function Home() {
       document.body.style.overflow = original;
     };
   }, [isUnlocked]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isUnlocked || !showScrollHint) {
+      return;
+    }
+
+    const onScroll = () => {
+      if (window.scrollY > 60) {
+        setShowScrollHint(false);
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isUnlocked, showScrollHint]);
 
   useEffect(() => {
     if (typeof document === "undefined" || !isThanksOpen) {
@@ -692,12 +707,6 @@ export default function Home() {
                   style={{ width: progressWidth }}
                   className="absolute inset-y-2 left-2 rounded-full bg-[linear-gradient(90deg,rgba(222,195,164,0.65),rgba(244,231,217,0.18))]"
                 />
-                <motion.div
-                  style={{ opacity: swipeHint }}
-                  className="pointer-events-none absolute inset-y-0 left-[5.25rem] right-5 z-10 flex items-center justify-center text-center text-[0.82rem] font-medium text-[#fff1de]"
-                >
-                  Проведіть праворуч
-                </motion.div>
                 <motion.button
                   type="button"
                   drag="x"
@@ -710,9 +719,14 @@ export default function Home() {
                   transition={sliderTransition}
                   onDragEnd={handleDragEnd}
                   onClick={handleUnlock}
-                  className="relative z-10 flex h-14 w-14 touch-none items-center justify-center rounded-full bg-[#fff9f2] text-[#2f2621] shadow-[0_10px_22px_rgba(0,0,0,0.26)]"
+                  className="relative z-10 flex h-14 w-14 touch-none items-center justify-center rounded-full border border-white/25 bg-[#fff9f2] text-[#2f2621] shadow-[0_10px_22px_rgba(0,0,0,0.28)]"
                 >
-                  <ArrowRight className="h-6 w-6" />
+                  <motion.div
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ duration: 1.25, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <ArrowRight className="h-6 w-6" strokeWidth={2.25} />
+                  </motion.div>
                 </motion.button>
               </div>
             </div>
@@ -768,6 +782,39 @@ export default function Home() {
             </FadeIn>
           </div>
         </div>
+
+        <motion.div
+          aria-hidden={!showScrollHint}
+          initial="hidden"
+          animate={isUnlocked && showScrollHint ? "visible" : "hidden"}
+          variants={{
+            hidden: {
+              opacity: 0,
+              y: 8,
+              transition: { duration: 0.3, ease: "easeOut" }
+            },
+            visible: {
+              opacity: 1,
+              y: 0,
+              transition: { duration: 0.5, delay: 0.9, ease: "easeOut" }
+            }
+          }}
+          className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4 pb-[env(safe-area-inset-bottom,0px)] sm:bottom-5"
+        >
+          <div className="flex items-center gap-2.5 rounded-full border border-white/35 bg-[rgba(20,14,12,0.58)] px-4 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.38)] backdrop-blur-sm">
+            <span className="text-[0.68rem] font-medium uppercase tracking-[0.24em] text-[#fff8f0] sm:text-[0.72rem] sm:tracking-[0.28em]">
+              Гортайте вниз
+            </span>
+            <motion.div
+              animate={{ y: [0, 5, 0] }}
+              transition={{ duration: 1.35, repeat: Infinity, ease: "easeInOut" }}
+              className="text-[#f1d3a3]"
+              aria-hidden
+            >
+              <ChevronDown className="h-5 w-5" strokeWidth={2.25} />
+            </motion.div>
+          </div>
+        </motion.div>
       </section>
 
       <div className="relative mx-auto max-w-md px-5 pb-20">
