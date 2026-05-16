@@ -76,6 +76,13 @@ const attendanceOptions = [
   "Поки не знаємо, дамо відповідь до 1 червня."
 ];
 
+/** Відмова — не показуємо блоки 3–6, у таблицю ставимо «-». */
+const RSVP_FIELD_PLACEHOLDER = "-";
+
+function isRsvpDecline(attendanceValue) {
+  return (attendanceValue || "").startsWith("На жаль");
+}
+
 const ceremonyOptions = [
   "Плануємо бути на вінчанні та святкуванні.",
   "Приєднаємося вже в ресторані."
@@ -346,10 +353,12 @@ export default function Home() {
   });
   const [withPartner, setWithPartner] = useState(false);
   const [isThanksOpen, setIsThanksOpen] = useState(false);
+  const [thanksIsDecline, setThanksIsDecline] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [showScrollHint, setShowScrollHint] = useState(true);
+  const [rsvpAttendance, setRsvpAttendance] = useState(attendanceOptions[0]);
 
   const clearError = (field) => {
     setErrors((current) => {
@@ -369,6 +378,7 @@ export default function Home() {
   const ceremonyRef = useRef(null);
   const transferRef = useRef(null);
   const drinksRef = useRef(null);
+  const scrollHintUnlockedAtRef = useRef(0);
   const [splashMounted, setSplashMounted] = useState(true);
   const [splashFadeOut, setSplashFadeOut] = useState(false);
   const knobX = useMotionValue(0);
@@ -512,12 +522,27 @@ export default function Home() {
   }, [isUnlocked]);
 
   useEffect(() => {
+    if (!isUnlocked) {
+      scrollHintUnlockedAtRef.current = 0;
+      return;
+    }
+    scrollHintUnlockedAtRef.current = Date.now();
+  }, [isUnlocked]);
+
+  useEffect(() => {
     if (typeof window === "undefined" || !isUnlocked || !showScrollHint) {
       return;
     }
 
+    const minVisibleMs = 7000;
+    const scrollHideThreshold = () =>
+      Math.max(280, Math.min(window.innerHeight * 0.42, 520));
+
     const onScroll = () => {
-      if (window.scrollY > 60) {
+      if (Date.now() - scrollHintUnlockedAtRef.current < minVisibleMs) {
+        return;
+      }
+      if (window.scrollY > scrollHideThreshold()) {
         setShowScrollHint(false);
       }
     };
@@ -785,33 +810,36 @@ export default function Home() {
 
         <motion.div
           aria-hidden={!showScrollHint}
-          initial="hidden"
+          initial={false}
           animate={isUnlocked && showScrollHint ? "visible" : "hidden"}
           variants={{
             hidden: {
               opacity: 0,
-              y: 8,
-              transition: { duration: 0.3, ease: "easeOut" }
+              y: 6,
+              transition: { duration: 0.25, ease: "easeOut" }
             },
             visible: {
               opacity: 1,
               y: 0,
-              transition: { duration: 0.5, delay: 0.9, ease: "easeOut" }
+              transition: { duration: 0, delay: 0 }
             }
           }}
-          className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4 pb-[env(safe-area-inset-bottom,0px)] sm:bottom-5"
+          className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom,0px)] sm:bottom-5"
         >
-          <div className="flex items-center gap-2.5 rounded-full border border-white/35 bg-[rgba(20,14,12,0.58)] px-4 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.38)] backdrop-blur-sm">
-            <span className="text-[0.68rem] font-medium uppercase tracking-[0.24em] text-[#fff8f0] sm:text-[0.72rem] sm:tracking-[0.28em]">
+          <div className="flex items-center gap-2.5 rounded-full border border-white/40 bg-[rgba(26,20,18,0.55)] px-4 py-2.5 shadow-[0_6px_22px_rgba(0,0,0,0.35)] backdrop-blur-sm sm:gap-3 sm:px-5 sm:py-2.5">
+            <span className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-[#fff8f0]/95 sm:text-[0.78rem] sm:tracking-[0.24em]">
               Гортайте вниз
             </span>
             <motion.div
               animate={{ y: [0, 5, 0] }}
-              transition={{ duration: 1.35, repeat: Infinity, ease: "easeInOut" }}
-              className="text-[#f1d3a3]"
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              className="shrink-0 text-[#f1d3a3]"
               aria-hidden
             >
-              <ChevronDown className="h-5 w-5" strokeWidth={2.25} />
+              <ChevronDown
+                className="h-[1.125rem] w-[1.125rem] sm:h-5 sm:w-5"
+                strokeWidth={2.1}
+              />
             </motion.div>
           </div>
         </motion.div>
@@ -1033,6 +1061,8 @@ export default function Home() {
                   return;
                 }
                 const data = new FormData(event.currentTarget);
+                const attendanceStr = (data.get("attendance") || "").toString();
+                const decline = isRsvpDecline(attendanceStr);
                 const guestName = (data.get("guestName") || "").toString().trim();
                 const partnerName = (data.get("partnerName") || "").toString().trim();
                 const ceremony = data.get("ceremony");
@@ -1045,27 +1075,34 @@ export default function Home() {
                 if (withPartner && !partnerName) {
                   nextErrors.partnerName = "Заповніть, будь ласка, це поле.";
                 }
-                if (!ceremony) {
-                  nextErrors.ceremony = "Оберіть, будь ласка, варіант.";
-                }
-                if (!transfer) {
-                  nextErrors.transfer = "Оберіть, будь ласка, варіант.";
-                }
-                if (selectedDrinks.length === 0) {
-                  nextErrors.drinks =
-                    "Це поле обов'язкове (виберіть «Безалкогольні напої», якщо не п'єте алкоголь).";
+                if (!decline) {
+                  if (!ceremony) {
+                    nextErrors.ceremony = "Оберіть, будь ласка, варіант.";
+                  }
+                  if (!transfer) {
+                    nextErrors.transfer = "Оберіть, будь ласка, варіант.";
+                  }
+                  if (selectedDrinks.length === 0) {
+                    nextErrors.drinks =
+                      "Це поле обов'язкове (виберіть «Безалкогольні напої», якщо не п'єте алкоголь).";
+                  }
                 }
 
                 setErrors(nextErrors);
 
                 if (Object.keys(nextErrors).length > 0) {
-                  const fieldOrder = [
-                    ["guestName", guestNameRef],
-                    ["partnerName", partnerNameRef],
-                    ["ceremony", ceremonyRef],
-                    ["transfer", transferRef],
-                    ["drinks", drinksRef]
-                  ];
+                  const fieldOrder = decline
+                    ? [
+                        ["guestName", guestNameRef],
+                        ["partnerName", partnerNameRef]
+                      ]
+                    : [
+                        ["guestName", guestNameRef],
+                        ["partnerName", partnerNameRef],
+                        ["ceremony", ceremonyRef],
+                        ["transfer", transferRef],
+                        ["drinks", drinksRef]
+                      ];
                   const firstInvalid = fieldOrder.find(([key]) => nextErrors[key]);
                   const node = firstInvalid?.[1].current;
                   if (node) {
@@ -1074,19 +1111,33 @@ export default function Home() {
                   return;
                 }
 
-                const payload = {
-                  attendance: (data.get("attendance") || "").toString(),
-                  guestName,
-                  partnerName: withPartner ? partnerName : "",
-                  ceremony: (ceremony || "").toString(),
-                  transfer: (transfer || "").toString(),
-                  hotel: (data.get("hotel") || "").toString(),
-                  drinks: selectedDrinks,
-                  sparkling: selectedSparklingTypes,
-                  whiteWine: selectedWhiteWineTypes,
-                  redWine: selectedRedWineTypes,
-                  message: (data.get("message") || "").toString().trim()
-                };
+                const payload = decline
+                  ? {
+                      attendance: attendanceStr,
+                      guestName,
+                      partnerName: withPartner ? partnerName : "",
+                      ceremony: RSVP_FIELD_PLACEHOLDER,
+                      transfer: RSVP_FIELD_PLACEHOLDER,
+                      hotel: RSVP_FIELD_PLACEHOLDER,
+                      drinks: [RSVP_FIELD_PLACEHOLDER],
+                      sparkling: [RSVP_FIELD_PLACEHOLDER],
+                      whiteWine: [RSVP_FIELD_PLACEHOLDER],
+                      redWine: [RSVP_FIELD_PLACEHOLDER],
+                      message: (data.get("message") || "").toString().trim()
+                    }
+                  : {
+                      attendance: attendanceStr,
+                      guestName,
+                      partnerName: withPartner ? partnerName : "",
+                      ceremony: (ceremony || "").toString(),
+                      transfer: (transfer || "").toString(),
+                      hotel: (data.get("hotel") || "").toString(),
+                      drinks: selectedDrinks,
+                      sparkling: selectedSparklingTypes,
+                      whiteWine: selectedWhiteWineTypes,
+                      redWine: selectedRedWineTypes,
+                      message: (data.get("message") || "").toString().trim()
+                    };
 
                 const webhookUrl = process.env.NEXT_PUBLIC_SHEET_WEBHOOK_URL;
                 setSubmitError(null);
@@ -1105,6 +1156,7 @@ export default function Home() {
                     );
                   }
                   setIsThanksOpen(true);
+                  setThanksIsDecline(decline);
                 } catch (error) {
                   setSubmitError(
                     "Не вдалось надіслати відповідь. Перевірте інтернет і спробуйте ще раз, або зателефонуйте координаторці."
@@ -1125,7 +1177,22 @@ export default function Home() {
                     <span className="text-sm font-medium text-[#5e4b3f]">Відповідь</span>
                     <select
                       name="attendance"
-                      defaultValue={attendanceOptions[0]}
+                      value={rsvpAttendance}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setRsvpAttendance(value);
+                        if (isRsvpDecline(value)) {
+                          setWithPartner(false);
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.ceremony;
+                            delete next.transfer;
+                            delete next.drinks;
+                            delete next.partnerName;
+                            return next;
+                          });
+                        }
+                      }}
                       className="h-14 w-full rounded-[1.2rem] border border-[#e4d4c7] bg-white/80 px-4 text-sm text-[#302622] outline-none transition focus:border-[#b18a66] focus:ring-4 focus:ring-[#e8d3bf]/50"
                     >
                       {attendanceOptions.map((option) => (
@@ -1138,8 +1205,17 @@ export default function Home() {
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">2. Інформація про гостей</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
-                    Вкажіть, будь ласка, свої дані та інформацію про супутника чи супутницю, якщо
-                    плануєте бути не самі.
+                    {isRsvpDecline(rsvpAttendance) ? (
+                      <>
+                        Будь ласка, вкажіть ім&apos;я та прізвище — так ми знатимемо, від кого отримали
+                        відповідь. Дякуємо, що повідомили нас.
+                      </>
+                    ) : (
+                      <>
+                        Вкажіть, будь ласка, свої дані та інформацію про супутника чи супутницю, якщо
+                        плануєте бути не самі.
+                      </>
+                    )}
                   </p>
                   <div className="mt-4 space-y-4">
                     <label className="block space-y-2">
@@ -1160,6 +1236,8 @@ export default function Home() {
                         <p className="text-xs text-red-500">{errors.guestName}</p>
                       ) : null}
                     </label>
+                    {!isRsvpDecline(rsvpAttendance) ? (
+                      <>
                     <label className="flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-[#ead8cc] bg-white/70 px-4 py-3 text-sm leading-6 text-[#43352d] transition hover:border-[#d7b79a]">
                       <input
                         type="checkbox"
@@ -1207,9 +1285,13 @@ export default function Home() {
                         ) : null}
                       </label>
                     </motion.div>
+                      </>
+                    ) : null}
                   </div>
                 </div>
 
+                {!isRsvpDecline(rsvpAttendance) ? (
+                  <>
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
                   <p className="text-sm font-semibold text-[#342923]">3. Розклад та вінчання</p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
@@ -1316,9 +1398,13 @@ export default function Home() {
                     <p className="mt-3 text-xs text-red-500">{errors.drinks}</p>
                   ) : null}
                 </div>
+                  </>
+                ) : null}
 
                 <div className="rounded-[1.6rem] border border-[#ead8cc] bg-white/55 p-4">
-                  <p className="text-sm font-semibold text-[#342923]">7. Зворотний зв&apos;язок</p>
+                  <p className="text-sm font-semibold text-[#342923]">
+                    {isRsvpDecline(rsvpAttendance) ? "3." : "7."} Зворотний зв&apos;язок
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-[#746458]">
                     Якщо у Вас залишилися запитання, які Вас турбують, або Ви хочете уточнити
                     деталі, на які ми маємо Вам відповісти, напишіть їх тут.
@@ -1451,17 +1537,27 @@ export default function Home() {
               <Check className="h-7 w-7" />
             </div>
             <p className="mt-5 text-[0.7rem] font-medium uppercase tracking-[0.35em] text-[#a78663]">
-              Дякуємо
+              {thanksIsDecline ? "Відповідь записано" : "Дякуємо"}
             </p>
             <h3
               id="thanks-modal-title"
               className="mt-2 font-serif-display text-3xl text-[#322620]"
             >
-              Вашу відповідь надіслано
+              {thanksIsDecline
+                ? "Нам дуже шкода, що не зможете бути з нами"
+                : "Вашу відповідь надіслано"}
             </h3>
             <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-[#6b5b50]">
-              Ми отримали Ваші дані і з нетерпінням чекаємо зустрічі. Якщо у Вас лишилися
-              запитання — координатор охоче все підкаже.
+              {thanksIsDecline ? (
+                <>
+                  Дякуємо, що повідомили нас.
+                </>
+              ) : (
+                <>
+                  Ми отримали Ваші дані і з нетерпінням чекаємо зустрічі. Якщо у Вас лишилися
+                  запитання — координатор охоче все підкаже.
+                </>
+              )}
             </p>
           </div>
 
@@ -1490,7 +1586,7 @@ export default function Home() {
             onClick={() => setIsThanksOpen(false)}
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2f2621] px-5 py-4 text-sm font-medium text-[#fff8f1] shadow-[0_16px_32px_rgba(47,38,33,0.24)] transition hover:bg-[#1f1815]"
           >
-            Дякуємо!
+            {thanksIsDecline ? "Закрити" : "Дякуємо!"}
           </button>
         </motion.div>
       </motion.div>
